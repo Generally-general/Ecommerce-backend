@@ -8,12 +8,15 @@ import com.ecommerce.project.entity.Product;
 import com.ecommerce.project.exception.ResourceNotFoundException;
 import com.ecommerce.project.repository.CategoryRepository;
 import com.ecommerce.project.repository.ProductRepository;
+import com.ecommerce.project.specification.ProductSpecification;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -45,8 +48,23 @@ public class ProductService {
         return toResponse(productRepository.save(product));
     }
 
-    public Page<ProductResponse> getAllProducts(Pageable pageable) {
-        return productRepository.findAll(pageable).map(this::toResponse);
+    public Page<ProductResponse> getAllProducts(
+            String name,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Integer categoryId,
+            Pageable pageable
+    ) {
+        Specification<Product> spec = Specification.allOf();
+
+        if(name != null && !name.isBlank()) spec = spec.and(ProductSpecification.nameContains(name));
+        if(minPrice != null) spec = spec.and(ProductSpecification.priceGreaterThanOrEqual(minPrice));
+        if(maxPrice != null) spec = spec.and(ProductSpecification.priceLessThanOrEqual(maxPrice));
+        if(categoryId != null) spec = spec.and(ProductSpecification.hasCategory(categoryId));
+
+        return productRepository
+                .findAll(spec, pageable)
+                .map(this::toResponse);
     }
 
     public ProductResponse getProductById(Integer id) {

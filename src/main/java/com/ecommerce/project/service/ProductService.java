@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -77,11 +78,13 @@ public class ProductService {
         return ProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
+                .description(product.getDescription())
                 .price(product.getPrice())
                 .stockQuantity(product.getStockQuantity())
+                .createdAt(product.getCreatedAt())
                 .categories(product.getCategories().stream()
                         .map(c -> new CategoryResponse(c.getId(), c.getName()))
-                        .collect(Collectors.toSet()))
+                        .collect(Collectors.toCollection(LinkedHashSet::new)))
                 .build();
     }
 }

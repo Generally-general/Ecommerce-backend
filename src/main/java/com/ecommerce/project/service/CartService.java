@@ -29,10 +29,10 @@ public class CartService {
     private final CartItemRepository cartItemRepository;
 
     public CartItemResponse addToCart(User authenticatedUser, Integer productId, Integer quantity) {
-        if(authenticatedUser == null) {
+        if (authenticatedUser == null) {
             throw new AuthenticationException("Unauthorized");
         }
-        if(quantity <= 0) {
+        if (quantity <= 0) {
             throw new BadRequestException("Quantity must be greater than 0");
         }
         Cart cart = cartRepository.findByUser(authenticatedUser)
@@ -40,9 +40,7 @@ public class CartService {
                         Cart.builder().user(authenticatedUser).build()
                 ));
 
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
-
+        Product product = getProductOrThrow(productId);
 
         Optional<CartItem> existingItem = cartItemRepository.findByCartAndProduct(cart, product);
 
@@ -50,12 +48,12 @@ public class CartService {
                 .map(item -> item.getQuantity() + quantity)
                 .orElse(quantity);
 
-        if(product.getStockQuantity() < newQuantity) {
+        if (product.getStockQuantity() < newQuantity) {
             throw new BadRequestException("Not enough stock available");
         }
 
         CartItem item;
-        if(existingItem.isPresent()) {
+        if (existingItem.isPresent()) {
             item = existingItem.get();
             item.setQuantity(newQuantity);
         } else {
@@ -70,7 +68,7 @@ public class CartService {
     }
 
     public CartResponse getCart(User authenticatedUser) {
-        if(authenticatedUser == null) {
+        if (authenticatedUser == null) {
             throw new AuthenticationException("Unauthorized");
         }
 
@@ -90,6 +88,48 @@ public class CartService {
                 .build();
     }
 
+    public CartItemResponse updateQuantity(User authenticatedUser, Integer productId, Integer newQuantity) {
+
+        Cart cart = getCartOrThrow(authenticatedUser);
+
+        Product product = getProductOrThrow(productId);
+
+        CartItem item = getCartItemOrThrow(cart, product);
+
+        if (product.getStockQuantity() < newQuantity) {
+            throw new BadRequestException("Not enough stock available");
+        }
+
+        if (newQuantity <= 0) {
+            cartItemRepository.delete(item);
+            return null;
+        }
+
+        item.setQuantity(newQuantity);
+
+        return toResponse(item);
+    }
+
+    public void removeItem(User authenticatedUser, Integer productId) {
+
+        Cart cart = getCartOrThrow(authenticatedUser);
+
+        Product product = getProductOrThrow(productId);
+
+        CartItem item = getCartItemOrThrow(cart, product);
+
+        cartItemRepository.delete(item);
+    }
+
+    public void clearCart(User authenticatedUser) {
+
+        Cart cart = getCartOrThrow(authenticatedUser);
+
+        List<CartItem> item = cartItemRepository.findByCart(cart);
+
+        cartItemRepository.deleteAll(item);
+    }
+
     public CartItemResponse toResponse(CartItem item) {
         BigDecimal price = item.getProduct().getPrice();
         BigDecimal subtotal = price.multiply(BigDecimal.valueOf(item.getQuantity()));
@@ -100,5 +140,24 @@ public class CartService {
                 .quantity(item.getQuantity())
                 .subtotal(subtotal)
                 .build();
+    }
+
+    private Cart getCartOrThrow(User user) {
+        if (user == null) {
+            throw new AuthenticationException("Unauthorized");
+        }
+
+        return cartRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Cart doesn't exist"));
+    }
+
+    private Product getProductOrThrow(Integer productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+    }
+
+    private CartItem getCartItemOrThrow(Cart cart, Product product) {
+        return cartItemRepository.findByCartAndProduct(cart, product)
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found in cart"));
     }
 }

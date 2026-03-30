@@ -1,9 +1,6 @@
 package com.ecommerce.project.controller;
 
-import com.ecommerce.project.dto.ApiResponse;
-import com.ecommerce.project.dto.CartItemRequest;
-import com.ecommerce.project.dto.CartItemResponse;
-import com.ecommerce.project.dto.CartResponse;
+import com.ecommerce.project.dto.*;
 import com.ecommerce.project.entity.User;
 import com.ecommerce.project.service.CartService;
 import jakarta.validation.Valid;
@@ -37,4 +34,31 @@ public class CartController {
         );
     }
 
+    @PutMapping("/items/{productId}")
+    public ResponseEntity<ApiResponse<CartItemResponse>> updateQuantity(
+            @AuthenticationPrincipal User user,
+            @PathVariable Integer productId,
+            @RequestBody UpdateCartItemRequest request
+    ) {
+        CartItemResponse response = cartService.updateQuantity(user, productId, request.getQuantity());
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Quantity updated", response)
+        );
+    }
+
+    @DeleteMapping("/items/{productId}")
+    public ResponseEntity<ApiResponse<Void>> removeItem(
+            @AuthenticationPrincipal User user,
+            @PathVariable Integer productId
+    ) {
+        cartService.removeItem(user, productId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Item removed", null));
+    }
+
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> clearCart(@AuthenticationPrincipal User user) {
+        cartService.clearCart(user);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Cart cleared successfully", null));
+    }
 }

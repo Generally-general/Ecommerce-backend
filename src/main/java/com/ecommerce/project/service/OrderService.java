@@ -116,6 +116,32 @@ public class OrderService {
         return toResponse(order);
     }
 
+    public OrderResponse updateOrderStatus(Integer orderId, OrderStatus newStatus) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        OrderStatus currentStatus = order.getStatus();
+
+        if(!isValidTransition(currentStatus, newStatus)) {
+            throw new BadRequestException("Invalid status transition");
+        }
+
+        order.setStatus(newStatus);
+
+        return toResponse(order);
+    }
+
+    private boolean isValidTransition(OrderStatus current, OrderStatus next) {
+        return switch (current) {
+            case PENDING ->
+                next == OrderStatus.CONFIRMED || next == OrderStatus.CANCELLED;
+            case CONFIRMED ->
+                    next == OrderStatus.SHIPPED || next == OrderStatus.CANCELLED;
+            case SHIPPED -> next == OrderStatus.DELIVERED;
+            case DELIVERED, CANCELLED -> false;
+        };
+    }
+
     private OrderResponse toResponse(Order order) {
         List<OrderItemResponse> items = order.getItems().stream()
                 .map(oi -> OrderItemResponse.builder()

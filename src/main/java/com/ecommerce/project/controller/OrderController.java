@@ -2,6 +2,7 @@ package com.ecommerce.project.controller;
 
 import com.ecommerce.project.dto.ApiResponse;
 import com.ecommerce.project.dto.OrderResponse;
+import com.ecommerce.project.entity.OrderStatus;
 import com.ecommerce.project.entity.User;
 import com.ecommerce.project.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,6 +53,19 @@ public class OrderController {
 
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Order fetched", response)
+        );
+    }
+
+    @PatchMapping("/{orderId}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
+            @PathVariable Integer orderId,
+            @RequestParam OrderStatus status
+    ) {
+        OrderResponse response = orderService.updateOrderStatus(orderId, status);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Order status updated", response)
         );
     }
 }

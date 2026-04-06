@@ -65,8 +65,6 @@ public class OrderService {
 
             if(fulfilledQty <= 0) continue;
 
-            product.setStockQuantity(availableQty - fulfilledQty);
-
             OrderItem orderItem = OrderItem.builder()
                     .product(product)
                     .requestedQuantity(requestedQty)
@@ -159,11 +157,26 @@ public class OrderService {
             throw new BadRequestException("Order is not in payable state");
         }
 
-        if(success) {
-            order.setStatus(OrderStatus.CONFIRMED);
-        } else {
+        if(!success) {
             order.setStatus(OrderStatus.CANCELLED);
+            return toResponse(order);
         }
+
+        for(OrderItem item: order.getItems()) {
+            Product product = productRepository.findByIdForUpdate(item.getProduct().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+            int available = product.getStockQuantity();
+            int needed = item.getFulfilledQuantity();
+
+            if(available < needed) {
+                throw new BadRequestException("Stock changed, cannot complete order");
+            }
+
+            product.setStockQuantity(available - needed);
+        }
+
+        order.setStatus(OrderStatus.CONFIRMED);
 
         return toResponse(order);
     }

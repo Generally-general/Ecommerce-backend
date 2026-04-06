@@ -78,4 +78,15 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(response);
     }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(
+            AccessDeniedException ex
+    ) {
+        log.warn("Access Denied: {}", ex.getMessage());
+
+        ApiResponse<Void> response = new ApiResponse<>(false, ex.getMessage(), null);
+
+        return ResponseEntity.status(403).body(response);
+    }
 }

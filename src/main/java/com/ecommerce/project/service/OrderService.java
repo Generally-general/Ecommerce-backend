@@ -3,6 +3,7 @@ package com.ecommerce.project.service;
 import com.ecommerce.project.dto.OrderItemResponse;
 import com.ecommerce.project.dto.OrderResponse;
 import com.ecommerce.project.entity.*;
+import com.ecommerce.project.exception.AccessDeniedException;
 import com.ecommerce.project.exception.AuthenticationException;
 import com.ecommerce.project.exception.BadRequestException;
 import com.ecommerce.project.exception.ResourceNotFoundException;
@@ -85,7 +86,7 @@ public class OrderService {
         }
 
         order.setTotalAmount(total);
-        order.setStatus(OrderStatus.CONFIRMED);
+        order.setStatus(OrderStatus.PENDING);
 
         Order savedOrder = orderRepository.save(order);
         cart.getItems().clear();
@@ -110,7 +111,7 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
         if(!order.getUser().getId().equals(authenticatedUser.getId())) {
-            throw new AuthenticationException("You cannot access this order");
+            throw new AccessDeniedException("You cannot access this order");
         }
 
         return toResponse(order);
@@ -140,6 +141,31 @@ public class OrderService {
             case SHIPPED -> next == OrderStatus.DELIVERED;
             case DELIVERED, CANCELLED -> false;
         };
+    }
+
+    public OrderResponse processPayment(User authenticatedUser, Integer orderId, boolean success) {
+        if(authenticatedUser == null) {
+            throw new AuthenticationException("Unauthorized");
+        }
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        if(!order.getUser().getId().equals(authenticatedUser.getId())) {
+            throw new AccessDeniedException("You cannot pay for this order");
+        }
+
+        if(order.getStatus() != OrderStatus.PENDING) {
+            throw new BadRequestException("Order is not in payable state");
+        }
+
+        if(success) {
+            order.setStatus(OrderStatus.CONFIRMED);
+        } else {
+            order.setStatus(OrderStatus.CANCELLED);
+        }
+
+        return toResponse(order);
     }
 
     private OrderResponse toResponse(Order order) {

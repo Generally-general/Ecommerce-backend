@@ -68,4 +68,16 @@ public class OrderController {
                 new ApiResponse<>(true, "Order status updated", response)
         );
     }
+
+    @PostMapping("/{orderId}/pay")
+    public ResponseEntity<ApiResponse<OrderResponse>> processPayment(
+            @AuthenticationPrincipal User user,
+            @PathVariable Integer orderId,
+            @RequestParam boolean success
+    ) {
+        OrderResponse response = orderService.processPayment(user, orderId, success);
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Payment processed", response)
+        );
+    }
 }

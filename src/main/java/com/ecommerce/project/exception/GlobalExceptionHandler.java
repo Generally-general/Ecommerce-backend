@@ -16,7 +16,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> catchAll(Exception ex) {
         ApiResponse<Void> response = new ApiResponse<>(false, ex.getMessage(), null);
-        log.warn("Unhandled exceptionL {}", ex.getMessage());
+        log.warn("Unhandled exception {}", ex.getMessage());
         return ResponseEntity.status(500).body(response);
     }
 

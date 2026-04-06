@@ -14,6 +14,8 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -88,7 +90,34 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         cart.getItems().clear();
 
-        List<OrderItemResponse> itemResponses = savedOrder.getItems().stream()
+
+        log.info("User {} placed order {} with total {}", authenticatedUser.getId(), order.getId(), total);
+
+        return toResponse(savedOrder);
+    }
+
+    public Page<OrderResponse> getMyOrders(User authenticatedUser, Pageable pageable) {
+        if(authenticatedUser == null) {
+            throw new AuthenticationException("Unauthorized");
+        }
+
+        return orderRepository.findByUser(authenticatedUser, pageable)
+                .map(this::toResponse);
+    }
+
+    public OrderResponse getOrderById(User authenticatedUser, Integer orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        if(!order.getUser().getId().equals(authenticatedUser.getId())) {
+            throw new AuthenticationException("You cannot access this order");
+        }
+
+        return toResponse(order);
+    }
+
+    private OrderResponse toResponse(Order order) {
+        List<OrderItemResponse> items = order.getItems().stream()
                 .map(oi -> OrderItemResponse.builder()
                         .productId(oi.getProduct().getId())
                         .productName(oi.getProduct().getName())
@@ -99,15 +128,12 @@ public class OrderService {
                         .build())
                 .toList();
 
-
-        log.info("User {} placed order {} with total {}", authenticatedUser.getId(), order.getId(), total);
-
         return OrderResponse.builder()
-                .id(savedOrder.getId())
-                .totalAmount(savedOrder.getTotalAmount())
-                .status(savedOrder.getStatus())
-                .createdAt(savedOrder.getCreatedAt())
-                .items(itemResponses)
+                .id(order.getId())
+                .totalAmount(order.getTotalAmount())
+                .status(order.getStatus())
+                .createdAt(order.getCreatedAt())
+                .items(items)
                 .build();
     }
 }

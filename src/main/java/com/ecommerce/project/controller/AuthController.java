@@ -17,7 +17,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse> register(
+    public ResponseEntity<ApiResponse<UserResponse>> register(
             @Valid @RequestBody UserRequest request
     ) {
         UserResponse data = authService.register(request);

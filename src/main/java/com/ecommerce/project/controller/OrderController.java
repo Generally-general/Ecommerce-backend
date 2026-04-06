@@ -30,7 +30,7 @@ public class OrderController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<OrderResponse>> getMyOrders(
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>> getMyOrders(
             @AuthenticationPrincipal User user,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable

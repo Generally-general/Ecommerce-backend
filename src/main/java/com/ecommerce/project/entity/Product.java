@@ -45,7 +45,4 @@ public class Product {
             inverseJoinColumns = @JoinColumn(name = "category_id")
     )
     private Set<Category> categories = new HashSet<>();
-
-    @Version
-    private Integer version;
 }

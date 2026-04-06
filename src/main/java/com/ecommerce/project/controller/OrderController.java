@@ -31,7 +31,7 @@ public class OrderController {
         );
     }
 
-    @GetMapping
+    @GetMapping("/me")
     public ResponseEntity<ApiResponse<Page<OrderResponse>>> getMyOrders(
             @AuthenticationPrincipal User user,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
@@ -53,6 +53,17 @@ public class OrderController {
 
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Order fetched", response)
+        );
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>> getAllOrders(
+            Pageable pageable
+    ) {
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "All orders fetched",
+                        orderService.getAllOrders(pageable))
         );
     }
 

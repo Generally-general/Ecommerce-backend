@@ -105,14 +105,24 @@ public class OrderService {
     }
 
     public OrderResponse getOrderById(User authenticatedUser, Integer orderId) {
+        if(authenticatedUser == null) {
+            throw new AuthenticationException("Unauthorized");
+        }
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
-        if(!order.getUser().getId().equals(authenticatedUser.getId())) {
+        if(!order.getUser().getId().equals(authenticatedUser.getId()) &&
+            !authenticatedUser.getRole().equals(Role.ADMIN)) {
             throw new AccessDeniedException("You cannot access this order");
         }
 
         return toResponse(order);
+    }
+
+    public Page<OrderResponse> getAllOrders(Pageable pageable) {
+        return orderRepository.findAll(pageable)
+                .map(this::toResponse);
     }
 
     public OrderResponse updateOrderStatus(Integer orderId, OrderStatus newStatus) {

@@ -1,5 +1,6 @@
 package com.ecommerce.project.security;
 
+import com.ecommerce.project.dto.AuthenticatedUser;
 import com.ecommerce.project.repository.UserRepository;
 import com.ecommerce.project.service.JwtService;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -46,32 +47,52 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = authHeader.substring(7);
             Integer userId = jwtService.extractUserId(token);
+            String email = jwtService.extractEmail(token);
+            String role = jwtService.extractRole(token);
 
             if(userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                userRepository.findById(userId).ifPresent(user -> {
-                    if(jwtService.isTokenValid(token, user.getEmail())) {
-                        List<SimpleGrantedAuthority> authorities =
-                                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole()));
+                AuthenticatedUser principal = new AuthenticatedUser(userId, email, role);
 
-                        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                                user,
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(
+                                principal,
                                 null,
-                                authorities
+                                List.of(new SimpleGrantedAuthority("ROLE_" + role))
                         );
-
-                        SecurityContextHolder.getContext().setAuthentication(auth);
-                    }
-                });
+                SecurityContextHolder.getContext().setAuthentication(auth);
             }
         } catch (ExpiredJwtException e) {
             log.error("401 Unauthorized: Token has expired. Please login again.");
             SecurityContextHolder.clearContext();
+
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+
+            response.getWriter().write("""
+                {
+                  "success": false,
+                  "message": "Token expired. Please login again."
+                }
+            """);
+            return;
         } catch (JwtException e) {
             log.error("401 Unauthorized: Invalid token. Authentication failed.");
             SecurityContextHolder.clearContext();
+
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+
+            response.getWriter().write("""
+                {
+                  "success": false,
+                  "message": "Invalid token"
+                }
+            """);
+            return;
         } catch (Exception e) {
             log.warn("JWT error: {}", e.getMessage());
             SecurityContextHolder.clearContext();
+            return;
         }
 
         filterChain.doFilter(request, response);

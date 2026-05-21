@@ -17,18 +17,18 @@ public class CartController {
 
     @PostMapping("/items")
     public ResponseEntity<ApiResponse<CartItemResponse>> addToCart(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal AuthenticatedUser user,
             @Valid @RequestBody CartItemRequest request
     ) {
-        CartItemResponse response = cartService.addToCart(user, request.getProductId(), request.getQuantity());
+        CartItemResponse response = cartService.addToCart(user.getId(), request.getProductId(), request.getQuantity());
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Item Added Successfully", response)
         );
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<CartResponse>> getMyCart(@AuthenticationPrincipal User user) {
-        CartResponse response = cartService.getCart(user);
+    public ResponseEntity<ApiResponse<CartResponse>> getMyCart(@AuthenticationPrincipal AuthenticatedUser user) {
+        CartResponse response = cartService.getCart(user.getId());
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Cart fetched successfully", response)
         );
@@ -36,29 +36,31 @@ public class CartController {
 
     @PutMapping("/items/{productId}")
     public ResponseEntity<ApiResponse<CartItemResponse>> updateQuantity(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Integer productId,
             @RequestBody UpdateCartItemRequest request
     ) {
-        CartItemResponse response = cartService.updateQuantity(user, productId, request.getQuantity());
+        CartItemResponse response = cartService.updateQuantity(user.getId(), productId, request.getQuantity());
+
+        String message = (response.getQuantity() == 0) ? "Item removed from cart" : "Quantity updated";
 
         return ResponseEntity.ok(
-                new ApiResponse<>(true, "Quantity updated", response)
+                new ApiResponse<>(true, message, response)
         );
     }
 
     @DeleteMapping("/items/{productId}")
     public ResponseEntity<ApiResponse<Void>> removeItem(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Integer productId
     ) {
-        cartService.removeItem(user, productId);
+        cartService.removeItem(user.getId(), productId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Item removed", null));
     }
 
     @DeleteMapping
-    public ResponseEntity<ApiResponse<Void>> clearCart(@AuthenticationPrincipal User user) {
-        cartService.clearCart(user);
+    public ResponseEntity<ApiResponse<Void>> clearCart(@AuthenticationPrincipal AuthenticatedUser user) {
+        cartService.clearCartByUserId(user.getId());
         return ResponseEntity.ok(new ApiResponse<>(true, "Cart cleared successfully", null));
     }
 }

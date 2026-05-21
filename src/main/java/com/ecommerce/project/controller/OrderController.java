@@ -1,6 +1,7 @@
 package com.ecommerce.project.controller;
 
 import com.ecommerce.project.dto.ApiResponse;
+import com.ecommerce.project.dto.AuthenticatedUser;
 import com.ecommerce.project.dto.OrderResponse;
 import com.ecommerce.project.entity.OrderStatus;
 import com.ecommerce.project.entity.User;
@@ -23,9 +24,9 @@ public class OrderController {
 
     @PostMapping("/checkout")
     public ResponseEntity<ApiResponse<OrderResponse>> checkout(
-            @AuthenticationPrincipal User user
+            @AuthenticationPrincipal AuthenticatedUser user
     ) {
-        OrderResponse response = orderService.checkout(user);
+        OrderResponse response = orderService.checkout(user.getId());
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Order placed successfully", response)
         );
@@ -33,11 +34,11 @@ public class OrderController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<Page<OrderResponse>>> getMyOrders(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal AuthenticatedUser user,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
-        Page<OrderResponse> response = orderService.getMyOrders(user, pageable);
+        Page<OrderResponse> response = orderService.getMyOrders(user.getId(), pageable);
 
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Orders fetched successfully", response)
@@ -46,10 +47,10 @@ public class OrderController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Integer id
     ) {
-        OrderResponse response = orderService.getOrderById(user, id);
+        OrderResponse response = orderService.getOrderById(user.getId(), user.getRole(), id);
 
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Order fetched", response)
@@ -82,11 +83,11 @@ public class OrderController {
 
     @PostMapping("/{orderId}/pay")
     public ResponseEntity<ApiResponse<OrderResponse>> processPayment(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Integer orderId,
             @RequestParam boolean success
     ) {
-        OrderResponse response = orderService.processPayment(user, orderId, success);
+        OrderResponse response = orderService.processPayment(user.getId(), orderId, success);
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Payment processed", response)
         );

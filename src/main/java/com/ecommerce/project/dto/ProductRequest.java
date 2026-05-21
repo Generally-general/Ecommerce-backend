@@ -23,4 +23,6 @@ public class ProductRequest {
 
     @NotEmpty
     private Set<Integer> categoryIds;
+
+    private Long version;
 }

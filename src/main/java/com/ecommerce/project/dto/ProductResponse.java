@@ -21,4 +21,5 @@ public class ProductResponse {
     private Integer stockQuantity;
     private LocalDateTime createdAt;
     private Set<CategoryResponse> categories;
+    private Long version;
 }

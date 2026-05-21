@@ -5,12 +5,16 @@ import com.ecommerce.project.dto.ProductRequest;
 import com.ecommerce.project.dto.ProductResponse;
 import com.ecommerce.project.entity.Category;
 import com.ecommerce.project.entity.Product;
+import com.ecommerce.project.exception.ConflictException;
 import com.ecommerce.project.exception.ResourceNotFoundException;
 import com.ecommerce.project.repository.CategoryRepository;
 import com.ecommerce.project.repository.ProductRepository;
 import com.ecommerce.project.specification.ProductSpecification;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -25,11 +29,13 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final ProductCacheService productCacheService;
 
-    @Transactional
+    @CacheEvict(value = "products_list", allEntries = true)
     public ProductResponse createProduct(ProductRequest request) {
         List<Category> rawCategories = categoryRepository.findAllById(request.getCategoryIds());
 
@@ -49,6 +55,7 @@ public class ProductService {
         return toResponse(productRepository.save(product));
     }
 
+    @Cacheable(value = "products_list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<ProductResponse> getAllProducts(
             String name,
             BigDecimal minPrice,
@@ -68,10 +75,46 @@ public class ProductService {
                 .map(this::toResponse);
     }
 
-    public ProductResponse getProductById(Integer id) {
+    public ProductResponse getProductFromDB(Integer id) {
+        System.out.println("Fetching from DB (fallback)");
         return productRepository.findById(id)
                 .map(this::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
+    }
+
+    public ProductResponse getProductByIdSafe(Integer id) {
+        try {
+            return productCacheService.getProductById(id);
+        } catch (Exception ex) {
+            System.out.println("Redis failed, falling back to DB...");
+            return getProductFromDB(id);
+        }
+    }
+
+    @CacheEvict(value = {"products_list"}, allEntries = true)
+    @CachePut(value = "products", key = "#id")
+    public ProductResponse updateProduct(Integer id, ProductRequest request) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+        validateVersion(product, request);
+
+        product.setName(request.getName());
+        product.setDescription(request.getDescription());
+        product.setPrice(request.getPrice());
+        product.setStockQuantity(request.getStockQuantity());
+
+        Product saved = productRepository.save(product);
+
+        return toResponse(saved);
+    }
+
+    @CacheEvict(value = {"products", "products_list"}, allEntries = true)
+    public void deleteProduct(Integer id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+        productRepository.delete(product);
     }
 
     public ProductResponse toResponse(Product product) {
@@ -82,9 +125,17 @@ public class ProductService {
                 .price(product.getPrice())
                 .stockQuantity(product.getStockQuantity())
                 .createdAt(product.getCreatedAt())
+                .version(product.getVersion())
                 .categories(product.getCategories().stream()
                         .map(c -> new CategoryResponse(c.getId(), c.getName()))
                         .collect(Collectors.toCollection(LinkedHashSet::new)))
                 .build();
+    }
+
+    private void validateVersion(Product product, ProductRequest request) {
+        if(request.getVersion() == null ||
+                !product.getVersion().equals(request.getVersion())) {
+            throw new ConflictException("Product was updated by another admin. Refresh and try again.");
+        }
     }
 }

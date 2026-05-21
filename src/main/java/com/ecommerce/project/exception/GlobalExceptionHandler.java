@@ -3,7 +3,9 @@ package com.ecommerce.project.exception;
 import com.ecommerce.project.dto.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -88,5 +90,11 @@ public class GlobalExceptionHandler {
         ApiResponse<Void> response = new ApiResponse<>(false, ex.getMessage(), null);
 
         return ResponseEntity.status(403).body(response);
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiResponse<>(false, "Product was modified by another admin. Please refresh.", null));
     }
 }

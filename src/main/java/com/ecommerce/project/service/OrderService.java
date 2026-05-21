@@ -7,10 +7,7 @@ import com.ecommerce.project.exception.AccessDeniedException;
 import com.ecommerce.project.exception.AuthenticationException;
 import com.ecommerce.project.exception.BadRequestException;
 import com.ecommerce.project.exception.ResourceNotFoundException;
-import com.ecommerce.project.repository.CartItemRepository;
-import com.ecommerce.project.repository.CartRepository;
-import com.ecommerce.project.repository.OrderRepository;
-import com.ecommerce.project.repository.ProductRepository;
+import com.ecommerce.project.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -33,11 +30,11 @@ public class OrderService {
     private final ProductRepository productRepository;
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+    private final UserRepository userRepository;
 
-    public OrderResponse checkout(User authenticatedUser) {
-        if(authenticatedUser == null) {
-            throw new AuthenticationException("Unauthorized");
-        }
+    public OrderResponse checkout(Integer userId) {
+        User authenticatedUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("user Not Found"));
 
         Cart cart = cartRepository.findByUserWithItems(authenticatedUser)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart doesn't exist"));
@@ -64,6 +61,8 @@ public class OrderService {
             int fulfilledQty = Math.min(requestedQty, availableQty);
 
             if(fulfilledQty <= 0) continue;
+
+            product.setStockQuantity(availableQty - fulfilledQty);
 
             OrderItem orderItem = OrderItem.builder()
                     .product(product)
@@ -95,26 +94,20 @@ public class OrderService {
         return toResponse(savedOrder);
     }
 
-    public Page<OrderResponse> getMyOrders(User authenticatedUser, Pageable pageable) {
-        if(authenticatedUser == null) {
-            throw new AuthenticationException("Unauthorized");
-        }
-
-        return orderRepository.findByUser(authenticatedUser, pageable)
+    public Page<OrderResponse> getMyOrders(Integer userId, Pageable pageable) {
+        return orderRepository.findByUserId(userId, pageable)
                 .map(this::toResponse);
     }
 
-    public OrderResponse getOrderById(User authenticatedUser, Integer orderId) {
-        if(authenticatedUser == null) {
-            throw new AuthenticationException("Unauthorized");
-        }
+    public OrderResponse getOrderById(Integer userId, String role, Integer orderId) {
+        Order order = orderRepository.findByIdWithUser(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
 
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        boolean isOwner = order.getUser().getId().equals(userId);
+        boolean isAdmin = role.equals(Role.ADMIN.name());
 
-        if(!order.getUser().getId().equals(authenticatedUser.getId()) &&
-            !authenticatedUser.getRole().equals(Role.ADMIN)) {
-            throw new AccessDeniedException("You cannot access this order");
+        if (!isOwner && !isAdmin) {
+            throw new AccessDeniedException("You do not have permission to access this order");
         }
 
         return toResponse(order);
@@ -151,15 +144,12 @@ public class OrderService {
         };
     }
 
-    public OrderResponse processPayment(User authenticatedUser, Integer orderId, boolean success) {
-        if(authenticatedUser == null) {
-            throw new AuthenticationException("Unauthorized");
-        }
-
-        Order order = orderRepository.findById(orderId)
+    public OrderResponse processPayment(Integer userId, Integer orderId, boolean success) {
+        Order order = orderRepository.findByIdWithUser(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        boolean isOwner = order.getUser().getId().equals(userId);
 
-        if(!order.getUser().getId().equals(authenticatedUser.getId())) {
+        if(!isOwner) {
             throw new AccessDeniedException("You cannot pay for this order");
         }
 

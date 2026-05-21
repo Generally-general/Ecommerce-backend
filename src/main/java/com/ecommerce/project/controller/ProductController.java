@@ -54,7 +54,32 @@ public class ProductController {
     public ResponseEntity<ApiResponse<ProductResponse>> getProductById(
             @PathVariable Integer id
     ) {
-        ProductResponse response = productService.getProductById(id);
+        ProductResponse response = productService.getProductByIdSafe(id);
         return ResponseEntity.ok(new ApiResponse<>(true, "Product fetched", response));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
+            @PathVariable Integer id,
+            @Valid @RequestBody ProductRequest request
+    ) {
+        ProductResponse response = productService.updateProduct(id, request);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Product updated", response)
+        );
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteProduct(
+            @PathVariable Integer id
+    ) {
+        productService.deleteProduct(id);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Product deleted", null)
+        );
     }
 }
